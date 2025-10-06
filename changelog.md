@@ -1,3 +1,5 @@
+# 1.0.5
+- Fix another editor crash
 # 1.0.4
 - Fix a crash when editing a start position
 # 1.0.3
