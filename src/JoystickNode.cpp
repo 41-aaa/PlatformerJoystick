@@ -1,3 +1,4 @@
+// ReSharper disable CppHidingFunction
 #include "JoystickNode.hpp"
 #include "Geode/loader/Log.hpp"
 #include "Geode/ui/Popup.hpp"
@@ -6,18 +7,18 @@
 #include <Geode/modify/LevelEditorLayer.hpp>
 #include <Geode/modify/UILayer.hpp>
 #include <Geode/modify/LevelSettingsLayer.hpp>
+#include <Geode/modify/PlayerObject.hpp>
 
 #ifdef GEODE_IS_DESKTOP
 #include <geode.custom-keybinds/include/Keybinds.hpp>
-#include <Geode/loader/GameEvent.hpp>
 
-$on_mod(Loaded) {
+$on_game(Loaded) {
     auto mgr = keybinds::BindManager::get();
     mgr->registerBindable({
         "joystick_up"_spr,
         "Joystick Up",
         "Up for joystick",
-        { 
+        {
             keybinds::Keybind::create(KEY_W, keybinds::Modifier::None),
             keybinds::ControllerBind::create(CONTROLLER_LTHUMBSTICK_UP),
             keybinds::Keybind::create(KEY_ArrowUp, keybinds::Modifier::None),
@@ -29,7 +30,7 @@ $on_mod(Loaded) {
         "joystick_down"_spr,
         "Joystick Down",
         "Down for joystick",
-        { 
+        {
             keybinds::Keybind::create(KEY_S, keybinds::Modifier::None),
             keybinds::ControllerBind::create(CONTROLLER_LTHUMBSTICK_DOWN),
             keybinds::Keybind::create(KEY_ArrowDown, keybinds::Modifier::None),
@@ -54,107 +55,6 @@ void runChecks(CCArray *objects) {
         }
     }
 }
-
-#ifdef GEODE_IS_DESKTOP
-#include <Geode/modify/LevelInfoLayer.hpp>
-class $modify(JSLIL, LevelInfoLayer) {
-    struct Fields {
-        bool m_hasVerified = false;
-    };
-    void popup(bool bounce = true) {
-        auto jbinds = keybinds::BindManager::get()->getBindsFor("robtop.geometry-dash/jump-p1");
-        auto mbinds = keybinds::BindManager::get()->getBindsFor("joystick_up"_spr);
-        bool overlap = false;
-        for (const auto& jbind : jbinds) {
-            for (const auto& mbind : mbinds) {
-                if (jbind->isEqual(mbind)) {
-                    overlap = true;
-                    break;
-                }
-            }
-            if (overlap) break;
-        }
-        if (!overlap) {
-            m_fields->m_hasVerified = true;
-            if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
-            playStep4();
-            return;
-        }
-        
-        auto po = createQuickPopup("Warning", "Your jump keybind seems to be set to the same as your up keybind. If you don't change it, you will not be able to input up.", "Ok", "Keybind Config", [this](auto, bool btn2){
-            if (btn2) {
-                popup(false);
-                // :/
-                (this->*(menu_selector(MoreOptionsLayer::onKeybindings)))(nullptr);
-            } else {
-                m_fields->m_hasVerified = true;
-                if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
-                playStep4();
-            }
-        }, false);
-        po->m_noElasticity = !bounce;
-        po->show();
-    }
-    void playStep4() {
-        if (!enableJoystick || m_fields->m_hasVerified) {
-            LevelInfoLayer::playStep4();
-            return;
-        }
-        PlatformToolbox::showCursor();
-        popup();
-    }
-};
-
-#include <Geode/modify/EditLevelLayer.hpp>
-class $modify(JSELL, EditLevelLayer) {
-    struct Fields {
-        bool m_hasVerified = false;
-    };
-    void popup(bool bounce = true) {
-        auto jbinds = keybinds::BindManager::get()->getBindsFor("robtop.geometry-dash/jump-p1");
-        auto mbinds = keybinds::BindManager::get()->getBindsFor("joystick_up"_spr);
-        bool overlap = false;
-        for (const auto& jbind : jbinds) {
-            for (const auto& mbind : mbinds) {
-                if (jbind->isEqual(mbind)) {
-                    overlap = true;
-                    break;
-                }
-            }
-            if (overlap) break;
-        }
-        if (!overlap) {
-            m_fields->m_hasVerified = true;
-            if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
-            playStep3();
-            return;
-        }
-        
-        auto po = createQuickPopup("Warning", "Your jump keybind seems to be set to the same as your up keybind. If you don't change it, you will not be able to input up.", "Ok", "Keybind Config", [this](auto, bool btn2){
-            if (btn2) {
-                popup(false);
-                // :/
-                (this->*(menu_selector(MoreOptionsLayer::onKeybindings)))(nullptr);
-            } else {
-                m_fields->m_hasVerified = true;
-                if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
-                playStep3();
-            }
-        }, false);
-        po->m_noElasticity = !bounce;
-        po->show();
-    }
-    
-    void playStep3() {
-        if (!enableJoystick || m_fields->m_hasVerified) {
-            EditLevelLayer::playStep3();
-            return;
-        }
-        PlatformToolbox::showCursor();
-        popup();
-    }
-};
-#endif
 
 void updateVal(GJBaseGameLayer *layer, int id, int val) {
     if (enableJoystick) {
@@ -205,18 +105,22 @@ bool JoystickNode::ccTouchBegan(CCTouch *touch, CCEvent *event) {
 }
 
 void JoystickNode::handleInput(GJBaseGameLayer *layer, CCPoint input, CCPoint old) {
-    if (old.x == 1) {
-        layer->queueButton(3, false, false);
-    } else if (old.x == -1) {
-        layer->queueButton(2, false, false);
+        if (input.x != old.x) {
+            if (old.x == 1) {
+                layer->queueButton(3, false, false);
+            } else if (old.x == -1) {
+                layer->queueButton(2, false, false);
+            }
+            if (input.x == 1) {
+                layer->queueButton(3, true, false);
+            } else if (input.x == -1) {
+                layer->queueButton(2, true, false);
+            }
+        }
+    if (layer->m_player1 && !layer->m_player1->m_controlsDisabled) {
+        if (input.x != old.x) updateVal(layer, 3741, input.x);
+        if (input.y != old.y) updateVal(layer, 3742, input.y);
     }
-    if (input.x == 1) {
-        layer->queueButton(3, true, false);
-    } else if (input.x == -1) {
-        layer->queueButton(2, true, false);
-    }
-    updateVal(layer, 3741, input.x);
-    updateVal(layer, 3742, input.y);
 }
 
 void JoystickNode::fakePosition() {
@@ -408,8 +312,6 @@ class $modify(JSUILayer, UILayer) {
 
     struct Fields {
         JoystickNode *m_joystickNode;
-        bool m_left = false;
-        bool m_right = false;
     };
 
     static void onModify(auto& self) {
@@ -429,56 +331,48 @@ class $modify(JSUILayer, UILayer) {
             #ifdef GEODE_IS_DESKTOP
 
             // mine
-            m_gameLayer->template addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
+            m_gameLayer->addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
                 if (!enableJoystick) return ListenerResult::Propagate;
-                if (auto jsLayer = static_cast<JSUILayer*>(this)) {
-                    if (auto node = jsLayer->m_fields->m_joystickNode) {
-                        auto old = node->m_currentInput;
-                        if (event->isDown()) node->m_currentInput.y += 1;
-                        else node->m_currentInput.y -= 1;
-                        node->handleInput(jsLayer->m_gameLayer, node->m_currentInput, old);
-                        node->fakePosition();
-                    }
+                if (auto node = m_fields->m_joystickNode) {
+                    auto old = node->m_currentInput;
+                    if (event->isDown()) node->m_currentInput.y += 1;
+                    else node->m_currentInput.y -= 1;
+                    node->handleInput(m_gameLayer, node->m_currentInput, old);
+                    node->fakePosition();
                 }
                 return ListenerResult::Stop;
             }, "joystick_up"_spr);
-            m_gameLayer->template addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
+            m_gameLayer->addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
                 if (!enableJoystick) return ListenerResult::Propagate;
-                if (auto jsLayer = static_cast<JSUILayer*>(this)) {
-                    if (auto node = jsLayer->m_fields->m_joystickNode) {
-                        auto old = node->m_currentInput;
-                        if (event->isDown()) node->m_currentInput.y -= 1;
-                        else node->m_currentInput.y += 1;
-                        node->handleInput(jsLayer->m_gameLayer, node->m_currentInput, old);
-                        node->fakePosition();
-                    }
+                if (auto node = this->m_fields->m_joystickNode) {
+                    auto old = node->m_currentInput;
+                    if (event->isDown()) node->m_currentInput.y -= 1;
+                    else node->m_currentInput.y += 1;
+                    node->handleInput(this->m_gameLayer, node->m_currentInput, old);
+                    node->fakePosition();
                 }
                 return ListenerResult::Stop;
             }, "joystick_down"_spr);
 
-            m_gameLayer->template addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
+            m_gameLayer->addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
                 if (!enableJoystick) return ListenerResult::Propagate;
-                if (auto jsLayer = static_cast<JSUILayer*>(this)) {
-                    if (auto node = jsLayer->m_fields->m_joystickNode) {
-                        auto old = node->m_currentInput;
-                        if (event->isDown()) node->m_currentInput.x -= 1;
-                        else node->m_currentInput.x += 1;
-                        node->handleInput(jsLayer->m_gameLayer, node->m_currentInput, old);
-                        node->fakePosition();
-                    }
+                if (auto node = this->m_fields->m_joystickNode) {
+                    auto old = node->m_currentInput;
+                    if (event->isDown()) node->m_currentInput.x -= 1;
+                    else node->m_currentInput.x += 1;
+                    node->handleInput(this->m_gameLayer, node->m_currentInput, old);
+                    node->fakePosition();
                 }
                 return ListenerResult::Stop;
             }, "robtop.geometry-dash/move-left-p1");
-            m_gameLayer->template addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
+            m_gameLayer->addEventListener<keybinds::InvokeBindFilter>([this](keybinds::InvokeBindEvent* event) {
                 if (!enableJoystick) return ListenerResult::Propagate;
-                if (auto jsLayer = static_cast<JSUILayer*>(this)) {
-                    if (auto node = jsLayer->m_fields->m_joystickNode) {
-                        auto old = node->m_currentInput;
-                        if (event->isDown()) node->m_currentInput.x += 1;
-                        else node->m_currentInput.x -= 1;
-                        node->handleInput(jsLayer->m_gameLayer, node->m_currentInput, old);
-                        node->fakePosition();
-                    }
+                if (auto node = this->m_fields->m_joystickNode) {
+                    auto old = node->m_currentInput;
+                    if (event->isDown()) node->m_currentInput.x += 1;
+                    else node->m_currentInput.x -= 1;
+                    node->handleInput(this->m_gameLayer, node->m_currentInput, old);
+                    node->fakePosition();
                 }
                 return ListenerResult::Stop;
             }, "robtop.geometry-dash/move-right-p1");
@@ -517,6 +411,44 @@ class $modify(JSUILayer, UILayer) {
 };
 
 class $modify(JSLEL, LevelEditorLayer) {
+    struct Fields {
+        bool m_hasVerified = false;
+    };
+#ifdef GEODE_IS_DESKTOP
+    void popup(bool bounce = true) {
+        auto jbinds = keybinds::BindManager::get()->getBindsFor("robtop.geometry-dash/jump-p1");
+        auto mbinds = keybinds::BindManager::get()->getBindsFor("joystick_up"_spr);
+        bool overlap = false;
+        for (const auto& jbind : jbinds) {
+            for (const auto& mbind : mbinds) {
+                if (jbind->isEqual(mbind)) {
+                    overlap = true;
+                    break;
+                }
+            }
+            if (overlap) break;
+        }
+        if (!overlap) {
+            m_fields->m_hasVerified = true;
+            if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
+            m_editorUI->onPlaytest(nullptr);
+            return;
+        }
+
+        auto po = createQuickPopup("Warning", "Your jump keybind seems to be set to the same as your up keybind. If you don't change it, you will not be able to input up.", "Ok", "Keybind Config", [this](auto, bool btn2){
+            if (btn2) {
+                // :/
+                (this->*(menu_selector(MoreOptionsLayer::onKeybindings)))(nullptr);
+            } else {
+                m_fields->m_hasVerified = true;
+                if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
+                m_editorUI->onPlaytest(nullptr);
+            }
+        }, false);
+        po->m_noElasticity = !bounce;
+        po->show();
+    }
+#endif
     void onPlaytest() {
         if (!m_objects) return LevelEditorLayer::onPlaytest();
         runChecks(m_objects);
@@ -528,11 +460,57 @@ class $modify(JSLEL, LevelEditorLayer) {
             }
         }
         updateVal(this, 3740, 1);
+#ifdef GEODE_IS_DESKTOP
+        if (enableJoystick && !m_fields->m_hasVerified) {
+            m_editorUI->onPlaytest(nullptr);
+            PlatformToolbox::showCursor();
+            popup();
+        }
+#endif
     }
 };
 
-
 class $modify(JSPL, PlayLayer) {
+    struct Fields {
+        bool m_hasVerified = false;
+    };
+#ifdef GEODE_IS_DESKTOP
+    void popup(bool bounce = true) {
+        auto jbinds = keybinds::BindManager::get()->getBindsFor("robtop.geometry-dash/jump-p1");
+        auto mbinds = keybinds::BindManager::get()->getBindsFor("joystick_up"_spr);
+        bool overlap = false;
+        for (const auto& jbind : jbinds) {
+            for (const auto& mbind : mbinds) {
+                if (jbind->isEqual(mbind)) {
+                    overlap = true;
+                    break;
+                }
+            }
+            if (overlap) break;
+        }
+        if (!overlap) {
+            m_fields->m_hasVerified = true;
+            if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
+
+            return;
+        }
+
+        queueInMainThread([bounce, this] {
+            auto po = createQuickPopup("Warning", "Your jump keybind seems to be set to the same as your up keybind. If you don't change it, you will not be able to input up.", "Ok", "Keybind Config", [this](auto, bool btn2){
+                if (btn2) {
+                    // :/
+                    (this->*menu_selector(MoreOptionsLayer::onKeybindings))(nullptr);
+                } else {
+                    m_fields->m_hasVerified = true;
+                    if (GameManager::get()->getGameVariable("0128")) PlatformToolbox::hideCursor();
+                }
+            }, false);
+                po->m_scene = getParent();
+                po->m_noElasticity = !bounce;
+                po->show();
+            });
+    }
+#endif
     void setupHasCompleted() {
         if (!m_objects) return PlayLayer::setupHasCompleted();
         runChecks(m_objects);
@@ -541,6 +519,16 @@ class $modify(JSPL, PlayLayer) {
         if (auto jsLayer = static_cast<JSUILayer*>(m_uiLayer)) {
             jsLayer->fixVisibility();
         }
+#ifdef GEODE_IS_DESKTOP
+        if (enableJoystick && !m_fields->m_hasVerified) {
+            queueInMainThread([this] {
+                pauseGame(false);
+            });
+            PlatformToolbox::showCursor();
+            popup(false);
+        }
+#endif
+
     }
 
     void resetLevel() {
@@ -609,9 +597,28 @@ class $modify(LTLSL, LevelSettingsLayer) {
         LevelSettingsLayer::updateGameplayModeButtons();
         auto toggler = m_fields->m_toggle;
         if (!toggler) return;
-        auto editor = m_editorLayer;
         toggler->setEnabled(m_settingsObject->m_platformerMode);
         toggler->setOpacity(m_settingsObject->m_platformerMode ? 255 : 100);
     }
     
+};
+
+class $modify(JSPO, PlayerObject) {
+    void disablePlayerControls() {
+        PlayerObject::disablePlayerControls();
+        if (m_gameLayer->m_player1 != this) return;
+        if (!enableJoystick || !UILayer::get()) return;
+        updateVal(m_gameLayer, 3741, 0);
+        updateVal(m_gameLayer, 3742, 0);
+    }
+
+    void enablePlayerControls() {
+        PlayerObject::enablePlayerControls();
+        if (m_gameLayer->m_player1 != this) return;
+        if (!enableJoystick || !UILayer::get()) return;
+        auto js = UILayer::get()->getChildByType<JoystickNode>(0);
+        if (!js) return;
+        updateVal(m_gameLayer, 3741, js->m_currentInput.x);
+        updateVal(m_gameLayer, 3742, js->m_currentInput.y);
+    }
 };

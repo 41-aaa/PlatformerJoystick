@@ -1,3 +1,6 @@
+# 1.0.6
+- Make the joystick follow lock player 1 controls
+- Some optimizations and fixes
 # 1.0.5
 - Fix another editor crash
 # 1.0.4
