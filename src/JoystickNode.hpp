@@ -25,4 +25,7 @@ class JoystickNode : public CCMenu {
         
         bool m_twoPlayer = false;
         CCPoint m_currentInput = {0, 0};
+
+    private:
+        CCLabelBMFont* m_valueLabel = nullptr;
 };
